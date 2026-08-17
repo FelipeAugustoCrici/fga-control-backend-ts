@@ -1,0 +1,386 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model active_timers {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id         String    @unique @db.Uuid
+  status          String    @db.VarChar(10)
+  started_at      DateTime? @db.Timestamptz(6)
+  elapsed_seconds Int       @default(0)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_active_timers_user_id")
+}
+
+model categories {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name       String   @unique @db.VarChar(100)
+  color      String   @default("#6366f1") @db.VarChar(7)
+  billable   Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model companies {
+  id                                String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                              String            @db.VarChar(150)
+  owner_id                          String            @db.Uuid
+  team_size                         String?           @db.VarChar(10)
+  created_at                        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                        DateTime          @default(now()) @db.Timestamptz(6)
+  users_companies_owner_idTousers   users             @relation("companies_owner_idTousers", fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_members                   company_members[]
+  task_entries                      task_entries[]
+  users_users_company_idTocompanies users[]           @relation("users_company_idTocompanies")
+
+  @@index([owner_id], map: "idx_companies_owner_id")
+}
+
+model company_members {
+  id         String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  company_id String       @db.Uuid
+  user_id    String       @db.Uuid
+  role       company_role @default(EMPLOYEE)
+  created_at DateTime     @default(now()) @db.Timestamptz(6)
+  companies  companies    @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([company_id, user_id])
+  @@index([company_id], map: "idx_company_members_company")
+  @@index([user_id], map: "idx_company_members_user")
+}
+
+model holidays {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  date       DateTime @db.Date
+  name       String   @db.VarChar(100)
+  user_id    String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([date, user_id])
+  @@index([date], map: "idx_holidays_date")
+  @@index([user_id], map: "idx_holidays_user_id")
+}
+
+model modules {
+  id           String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String         @db.VarChar(100)
+  key          String         @unique @db.VarChar(50)
+  description  String?
+  is_active    Boolean        @default(true)
+  plan_modules plan_modules[]
+}
+
+model plan_limits {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  plan_id           String   @unique @db.VarChar(50)
+  max_entries_month Int      @default(0)
+  storage_mb        Int      @default(0)
+  max_projects      Int      @default(0)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  plans             plans    @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([plan_id], map: "idx_plan_limits_plan_id")
+}
+
+model plan_modules {
+  id         String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  plan_id    String  @db.VarChar(50)
+  module_id  String  @db.Uuid
+  can_view   Boolean @default(false)
+  can_create Boolean @default(false)
+  can_edit   Boolean @default(false)
+  can_delete Boolean @default(false)
+  modules    modules @relation(fields: [module_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plans      plans   @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([plan_id, module_id])
+  @@index([module_id], map: "idx_plan_modules_module_id")
+  @@index([plan_id], map: "idx_plan_modules_plan_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model plan_requests {
+  id                                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                                String    @db.Uuid
+  current_plan_id                        String?   @db.VarChar(50)
+  requested_plan_id                      String    @db.VarChar(50)
+  status                                 String    @default("pending") @db.VarChar(20)
+  note                                   String?
+  reviewed_by                            String?   @db.Uuid
+  reviewed_at                            DateTime? @db.Timestamptz(6)
+  created_at                             DateTime  @default(now()) @db.Timestamptz(6)
+  plans                                  plans     @relation(fields: [requested_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_plan_requests_reviewed_byTousers users?    @relation("plan_requests_reviewed_byTousers", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_plan_requests_user_idTousers     users     @relation("plan_requests_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_plan_requests_status")
+  @@index([user_id], map: "idx_plan_requests_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model plans {
+  id            String          @id @db.VarChar(50)
+  name          String          @db.VarChar(100)
+  type          String          @db.VarChar(20)
+  usage_type    String          @db.VarChar(20)
+  price         Int             @default(0)
+  description   String?
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  plan_limits   plan_limits?
+  plan_modules  plan_modules[]
+  plan_requests plan_requests[]
+}
+
+model projects {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id   String         @db.Uuid
+  workspace_type String         @default("PERSONAL") @db.VarChar(20)
+  name           String         @db.VarChar(255)
+  description    String?
+  code           String?        @db.VarChar(50)
+  status         project_status @default(ACTIVE)
+  color          String?        @db.VarChar(20)
+  icon           String?        @db.VarChar(50)
+  created_by     String         @db.Uuid
+  start_date     DateTime?      @db.Date
+  end_date       DateTime?      @db.Date
+  archived_at    DateTime?      @db.Timestamptz(6)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  users          users          @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  sprints        sprints[]
+  task_entries   task_entries[]
+
+  @@index([created_by], map: "idx_projects_created_by")
+  @@index([status], map: "idx_projects_status")
+  @@index([workspace_id], map: "idx_projects_workspace_id")
+}
+
+model sessions {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_sessions_token_hash")
+  @@index([user_id], map: "idx_sessions_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sprints {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String    @db.Uuid
+  name         String    @db.VarChar(100)
+  goal         String?
+  start_date   DateTime  @db.Date
+  end_date     DateTime  @db.Date
+  status       String    @default("PLANNED") @db.VarChar(20)
+  created_by   String    @db.Uuid
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  project_id   String?   @db.Uuid
+  users        users     @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  projects     projects? @relation(fields: [project_id], references: [id], onUpdate: NoAction)
+  tasks        tasks[]
+  wikis        wikis[]
+
+  @@index([project_id], map: "idx_sprints_project_id")
+  @@index([status], map: "idx_sprints_status")
+  @@index([workspace_id], map: "idx_sprints_workspace_id")
+}
+
+model task_code_sequences {
+  workspace_id String @id @db.Uuid
+  last_seq     Int    @default(0)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model task_entries {
+  id                 String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id            String?     @db.Uuid
+  date               DateTime    @db.Date
+  task_code          String      @db.VarChar(50)
+  description        String
+  time_spent_minutes Int
+  hourly_rate        String
+  total_amount       String
+  status             task_status @default(done)
+  category           String?     @db.VarChar(100)
+  project            String?     @db.VarChar(100)
+  notes              String?
+  start_time         String?     @db.VarChar(5)
+  end_time           String?     @db.VarChar(5)
+  created_at         DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime    @default(now()) @db.Timestamptz(6)
+  company_id         String?     @db.Uuid
+  task_id            String?     @db.Uuid
+  project_id         String?     @db.Uuid
+  companies          companies?  @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projects           projects?   @relation(fields: [project_id], references: [id], onUpdate: NoAction)
+  users              users?      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_task_entries_company_id")
+  @@index([date(sort: Desc)], map: "idx_task_entries_date")
+  @@index([project], map: "idx_task_entries_project")
+  @@index([project_id], map: "idx_task_entries_project_id")
+  @@index([status], map: "idx_task_entries_status")
+  @@index([task_id], map: "idx_task_entries_task_id")
+  @@index([user_id], map: "idx_task_entries_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tasks {
+  id                                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id                        String    @db.Uuid
+  project_id                          String?   @db.Uuid
+  sprint_id                           String?   @db.Uuid
+  assigned_user_id                    String?   @db.Uuid
+  code                                String?   @db.VarChar(20)
+  title                               String    @db.VarChar(255)
+  description                         String?
+  task_type                           String    @default("FEATURE") @db.VarChar(20)
+  status                              String    @default("TODO") @db.VarChar(20)
+  priority                            String    @default("MEDIUM") @db.VarChar(10)
+  estimated_hours                     Decimal   @default(0) @db.Decimal(6, 2)
+  worked_hours                        Decimal   @default(0) @db.Decimal(6, 2)
+  due_date                            DateTime? @db.Timestamptz(6)
+  created_by                          String    @db.Uuid
+  created_at                          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                          DateTime  @default(now()) @db.Timestamptz(6)
+  sprints                             sprints?  @relation(fields: [sprint_id], references: [id], onUpdate: NoAction, map: "fk_tasks_sprint")
+  users_tasks_assigned_user_idTousers users?    @relation("tasks_assigned_user_idTousers", fields: [assigned_user_id], references: [id], onUpdate: NoAction)
+  users_tasks_created_byTousers       users     @relation("tasks_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+
+  @@unique([workspace_id, code], map: "idx_tasks_workspace_code")
+  @@index([assigned_user_id], map: "idx_tasks_assigned_user_id")
+  @@index([created_by], map: "idx_tasks_created_by")
+  @@index([project_id], map: "idx_tasks_project_id")
+  @@index([sprint_id], map: "idx_tasks_sprint_id")
+  @@index([status], map: "idx_tasks_status")
+  @@index([workspace_id], map: "idx_tasks_workspace_id")
+}
+
+model user_settings {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id               String?  @unique(map: "idx_user_settings_user_id") @db.Uuid
+  hourly_rate           String   @default("0")
+  daily_hours_goal      String   @default("8")
+  monthly_goal          String   @default("")
+  default_category_name String?  @default("Desenvolvimento") @db.VarChar(255)
+  category_codes        String?  @default("[]")
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+  users                 users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                             String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                                           String            @db.VarChar(100)
+  email                                          String            @unique @db.VarChar(150)
+  password_hash                                  String
+  must_change_password                           Boolean           @default(false)
+  usage_type                                     String?           @db.VarChar(20)
+  plan_id                                        String?           @db.VarChar(50)
+  is_admin                                       Boolean           @default(false)
+  is_active                                      Boolean           @default(true)
+  last_activity_at                               DateTime?         @db.Timestamptz(6)
+  created_at                                     DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime          @default(now()) @db.Timestamptz(6)
+  company_id                                     String?           @db.Uuid
+  active_timers                                  active_timers?
+  companies_companies_owner_idTousers            companies[]       @relation("companies_owner_idTousers")
+  company_members                                company_members[]
+  holidays                                       holidays[]
+  plan_requests_plan_requests_reviewed_byTousers plan_requests[]   @relation("plan_requests_reviewed_byTousers")
+  plan_requests_plan_requests_user_idTousers     plan_requests[]   @relation("plan_requests_user_idTousers")
+  projects                                       projects[]
+  sessions                                       sessions[]
+  sprints                                        sprints[]
+  task_entries                                   task_entries[]
+  tasks_tasks_assigned_user_idTousers            tasks[]           @relation("tasks_assigned_user_idTousers")
+  tasks_tasks_created_byTousers                  tasks[]           @relation("tasks_created_byTousers")
+  user_settings                                  user_settings?
+  companies_users_company_idTocompanies          companies?        @relation("users_company_idTocompanies", fields: [company_id], references: [id], onUpdate: NoAction)
+  wikis                                          wikis[]
+
+  @@index([company_id], map: "idx_users_company_id")
+  @@index([is_admin], map: "idx_users_is_admin")
+  @@index([last_activity_at], map: "idx_users_last_activity")
+  @@index([plan_id], map: "idx_users_plan_id")
+  @@index([usage_type], map: "idx_users_usage_type")
+}
+
+model wikis {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String      @db.Uuid
+  sprint_id    String?     @db.Uuid
+  title        String      @db.VarChar(255)
+  description  String?
+  content      String      @default("")
+  type         wiki_type   @default(NOTE)
+  version      String?     @db.VarChar(50)
+  status       wiki_status @default(DRAFT)
+  tags         String[]    @default([])
+  created_by   String      @db.Uuid
+  created_at   DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime    @default(now()) @db.Timestamptz(6)
+  published_at DateTime?   @db.Timestamptz(6)
+  sprints      sprints?    @relation(fields: [sprint_id], references: [id], onUpdate: NoAction, map: "fk_wikis_sprint")
+  users        users       @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+
+  @@index([created_by], map: "idx_wikis_created_by")
+  @@index([sprint_id], map: "idx_wikis_sprint_id")
+  @@index([status], map: "idx_wikis_status")
+  @@index([type], map: "idx_wikis_type")
+  @@index([updated_at(sort: Desc)], map: "idx_wikis_updated_at")
+  @@index([workspace_id], map: "idx_wikis_workspace_id")
+}
+
+enum company_role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum project_status {
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum task_status {
+  pending
+  in_progress
+  done
+}
+
+enum wiki_status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum wiki_type {
+  RELEASE
+  DOCUMENTATION
+  PROCESS
+  DECISION
+  NOTE
+  GUIDE
+}
