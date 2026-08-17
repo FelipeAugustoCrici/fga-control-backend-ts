@@ -2,6 +2,13 @@
 FROM node:22-slim AS builder
 WORKDIR /app
 
+# Sem isso, `prisma generate` não detecta a versão do libssl e cai num modo
+# de fallback que gera um client.js quebrado (requer arquivos .ts que não
+# existem no runtime, em vez dos .js compilados) — descoberto comparando um
+# build local (com openssl disponível) contra o build da Railway (sem).
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
