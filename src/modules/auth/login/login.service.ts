@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-import { PasswordService } from '../../../common/auth/password.service';
+import { KeycloakService } from '../../../common/auth/keycloak.service';
 import {
   AuthTokenIssuerService,
   AuthResponse,
@@ -12,16 +12,16 @@ import {
 import { AuthRepository } from '../auth.repository';
 import { LoginDto } from './login.dto';
 
-// Réplica de AuthService.Login. As mensagens de erro abaixo são as que o
-// authHandler.Login do Go efetivamente devolve — note que "E-mail ou senha
-// incorretos" (E maiúsculo) é escrito direto no handler, diferente da
-// mensagem do sentinel ErrInvalidCreds ("e-mail..."), então replicamos o
-// texto do handler, não o do erro interno.
+// Réplica de AuthService.Login, com uma diferença de propósito: a
+// verificação de senha não é mais local (bcrypt contra users.password_hash)
+// — o Keycloak é a única fonte de verdade das credenciais, sem fallback.
+// `password_hash` continua existindo na tabela por compatibilidade
+// histórica, mas login não lê mais essa coluna.
 @Injectable()
 export class LoginService {
   constructor(
     private readonly authRepo: AuthRepository,
-    private readonly passwordService: PasswordService,
+    private readonly keycloakService: KeycloakService,
     private readonly tokenIssuer: AuthTokenIssuerService,
   ) {}
 
@@ -31,11 +31,14 @@ export class LoginService {
       throw new UnauthorizedException('E-mail ou senha incorretos');
     }
 
-    const passwordMatches = await this.passwordService.compare(
+    const passwordMatches = await this.keycloakService.verifyPassword(
+      dto.email,
       dto.password,
-      user.password_hash,
     );
     if (!passwordMatches) {
+      // false (senha errada/usuário não existe no Keycloak) e null
+      // (Keycloak fora do ar) tratam igual: sem fallback, login não
+      // funciona sem o Keycloak confirmar.
       throw new UnauthorizedException('E-mail ou senha incorretos');
     }
 

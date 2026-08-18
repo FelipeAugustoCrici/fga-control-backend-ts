@@ -3,6 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { AdminGuard } from './admin.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtService } from './jwt.service';
+import { KeycloakService } from './keycloak.service';
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
 
@@ -18,6 +19,7 @@ import { SessionService } from './session.service';
     JwtService,
     SessionService,
     PasswordService,
+    KeycloakService,
     JwtAuthGuard,
     AdminGuard,
   ],
@@ -25,6 +27,7 @@ import { SessionService } from './session.service';
     JwtService,
     SessionService,
     PasswordService,
+    KeycloakService,
     JwtAuthGuard,
     AdminGuard,
   ],

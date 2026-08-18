@@ -42,6 +42,25 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   GO_BACKEND_URL?: string;
+
+  // Keycloak — única fonte de verdade das credenciais (ver
+  // /home/felipe/.claude/plans/wobbly-munching-lampson.md). Sem fallback:
+  // login não funciona sem essas variáveis, então falha o boot.
+  @IsNotEmpty({ message: 'KEYCLOAK_URL não definida' })
+  @IsString()
+  KEYCLOAK_URL!: string;
+
+  @IsNotEmpty({ message: 'KEYCLOAK_REALM não definida' })
+  @IsString()
+  KEYCLOAK_REALM!: string;
+
+  @IsNotEmpty({ message: 'KEYCLOAK_CLIENT_ID não definida' })
+  @IsString()
+  KEYCLOAK_CLIENT_ID!: string;
+
+  @IsNotEmpty({ message: 'KEYCLOAK_CLIENT_SECRET não definida' })
+  @IsString()
+  KEYCLOAK_CLIENT_SECRET!: string;
 }
 
 export function validateEnv(

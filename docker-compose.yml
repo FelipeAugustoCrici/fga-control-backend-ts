@@ -13,7 +13,68 @@ services:
       # do fga-control-backend), então redireciona pro host de fato.
       DATABASE_URL: postgresql://controltasks:controltasks@host.docker.internal:5432/controltasks?schema=public
       GO_BACKEND_URL: http://host.docker.internal:8080
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: fga-control
+      KEYCLOAK_CLIENT_ID: backend-ts
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-dev-client-secret-change-me}
     ports:
       - "${APP_PORT:-8081}:${APP_PORT:-8081}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  keycloak_db:
+    image: postgres:16-alpine
+    container_name: fga_control_keycloak_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: keycloak
+    ports:
+      # Só pro script de migração (scripts/migrate-users-to-keycloak.ts),
+      # que roda no host, não em container.
+      - "5433:5432"
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak self-hosted, só pra autenticação (Fase 1 — ver
+  # /home/felipe/.claude/plans/wobbly-munching-lampson.md). start-dev é
+  # aceitável aqui porque o admin console/porta 8082 não é exposto além do
+  # host local de dev; endureça (start + TLS + KC_HOSTNAME_STRICT=true) antes
+  # de expor isso publicamente.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: fga_control_keycloak
+    restart: unless-stopped
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./keycloak/providers:/opt/keycloak/providers:ro
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
+
+volumes:
+  keycloak_db_data:
