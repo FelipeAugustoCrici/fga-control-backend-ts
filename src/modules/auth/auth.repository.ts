@@ -35,6 +35,9 @@ export class AuthRepository {
     return count > 0;
   }
 
+  // password_hash continua sendo gravado por compatibilidade histórica,
+  // mas login não lê mais essa coluna — a senha de verdade já foi criada
+  // no Keycloak antes desta chamada (ver RegisterService/CreateUserService).
   createUser(input: CreateUserInput) {
     return this.prisma.users.create({
       data: {
@@ -44,6 +47,7 @@ export class AuthRepository {
         must_change_password: false,
         usage_type: input.usageType,
         plan_id: input.planId,
+        keycloak_migrated_at: new Date(),
       },
     });
   }
@@ -55,6 +59,7 @@ export class AuthRepository {
         email,
         password_hash: passwordHash,
         must_change_password: true,
+        keycloak_migrated_at: new Date(),
       },
     });
   }

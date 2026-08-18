@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 
+import { KeycloakService } from '../../../common/auth/keycloak.service';
 import { PasswordService } from '../../../common/auth/password.service';
 import { CompaniesRepository } from '../../companies/companies.repository';
 import {
@@ -9,13 +10,21 @@ import {
 import { AuthRepository } from '../auth.repository';
 import { RegisterDto } from './register.dto';
 
-// Réplica de AuthService.Register (internal/service/auth_service.go).
+// Réplica de AuthService.Register (internal/service/auth_service.go), com
+// um passo a mais: o usuário precisa existir no Keycloak antes de existir
+// no Postgres — sem isso ele nunca conseguiria logar (não tem mais
+// fallback local). Se a criação no Keycloak falhar, nada é gravado no
+// Postgres (evita usuário "fantasma" que nunca vai logar); se o Postgres
+// falhar depois do Keycloak ter sido criado, fica uma conta órfã no
+// Keycloak sem usuário correspondente aqui — pior cenário aceitável, dado
+// que o inverso (usuário aqui sem conta no Keycloak) é o que quebraria login.
 @Injectable()
 export class RegisterService {
   constructor(
     private readonly authRepo: AuthRepository,
     private readonly companiesRepo: CompaniesRepository,
     private readonly passwordService: PasswordService,
+    private readonly keycloakService: KeycloakService,
     private readonly tokenIssuer: AuthTokenIssuerService,
   ) {}
 
@@ -24,6 +33,8 @@ export class RegisterService {
     if (exists) {
       throw new ConflictException('e-mail já cadastrado');
     }
+
+    await this.keycloakService.createUser(dto.email, dto.password);
 
     const passwordHash = await this.passwordService.hash(dto.password);
     let user = await this.authRepo.createUser({

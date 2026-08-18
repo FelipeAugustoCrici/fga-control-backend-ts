@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 
+import { KeycloakService } from '../../../common/auth/keycloak.service';
 import { PasswordService } from '../../../common/auth/password.service';
 import { company_role } from '../../../generated/prisma/enums';
 import { CompaniesRepository } from '../../companies/companies.repository';
@@ -27,6 +28,7 @@ export class CreateUserService {
     private readonly authRepo: AuthRepository,
     private readonly companiesRepo: CompaniesRepository,
     private readonly passwordService: PasswordService,
+    private readonly keycloakService: KeycloakService,
   ) {}
 
   async execute(
@@ -46,6 +48,8 @@ export class CreateUserService {
     if (existingUser) {
       throw new ConflictException(`usuário com e-mail ${email} já existe`);
     }
+
+    await this.keycloakService.createUser(email, TEMP_PASSWORD);
 
     const passwordHash = await this.passwordService.hash(TEMP_PASSWORD);
     const user = await this.authRepo.createUserByAdmin(
