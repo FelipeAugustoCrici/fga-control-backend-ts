@@ -30,6 +30,7 @@ export class CreateUserController {
       dto.name,
       dto.email,
       dto.role,
+      dto.manager_user_id,
     );
     return dataResponse(result);
   }

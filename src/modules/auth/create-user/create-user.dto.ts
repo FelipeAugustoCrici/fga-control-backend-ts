@@ -15,4 +15,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   role?: string;
+
+  // Gestor direto do novo usuário (hierarquia de reporte). Não existia no
+  // Go — adicionado aqui, validado no service (precisa ser ADMIN/MANAGER
+  // da mesma empresa).
+  @IsOptional()
+  @IsString()
+  manager_user_id?: string;
 }

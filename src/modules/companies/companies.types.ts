@@ -17,7 +17,8 @@ export interface UserCompanyResponse {
   role: company_role;
 }
 
-// Réplica de model.CompanyMember (GET /companies/members).
+// Réplica de model.CompanyMember (GET /companies/members), com o campo de
+// hierarquia adicionado (quem é o gestor direto desse membro).
 export interface CompanyMemberResponse {
   id: string;
   company_id: string;
@@ -27,9 +28,12 @@ export interface CompanyMemberResponse {
   name: string;
   email: string;
   total_minutes: number;
+  manager_user_id?: string;
+  manager_name?: string;
 }
 
 export interface MembershipInfo {
   isMember: boolean;
   role: company_role | null;
+  managerUserId: string | null;
 }

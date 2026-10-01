@@ -36,6 +36,7 @@ export class CreateUserService {
     name: string,
     email: string,
     role: string | undefined,
+    managerUserId?: string,
   ): Promise<CreateUserResult> {
     const companyId = await this.companiesRepo.getAdminCompanyId(callerId);
     if (!companyId) {
@@ -49,6 +50,22 @@ export class CreateUserService {
       throw new ConflictException(`usuário com e-mail ${email} já existe`);
     }
 
+    if (managerUserId) {
+      const manager = await this.companiesRepo.isMember(
+        companyId,
+        managerUserId,
+      );
+      if (
+        !manager.isMember ||
+        (manager.role !== company_role.ADMIN &&
+          manager.role !== company_role.MANAGER)
+      ) {
+        throw new ForbiddenException(
+          'o gestor indicado precisa ser administrador ou gerente desta empresa',
+        );
+      }
+    }
+
     await this.keycloakService.createUser(email, TEMP_PASSWORD);
 
     const passwordHash = await this.passwordService.hash(TEMP_PASSWORD);
@@ -59,7 +76,12 @@ export class CreateUserService {
     );
 
     const resolvedRole = (role || 'EMPLOYEE') as company_role;
-    await this.companiesRepo.addMember(companyId, user.id, resolvedRole);
+    await this.companiesRepo.addMember(
+      companyId,
+      user.id,
+      resolvedRole,
+      managerUserId ?? null,
+    );
 
     return { user: toUserResponse(user), temporary_password: TEMP_PASSWORD };
   }
