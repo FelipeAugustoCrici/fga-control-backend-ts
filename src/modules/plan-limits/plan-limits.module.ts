@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { PlansModule } from '../plans/plans.module';
 import { CheckEntriesLimitController } from './check-entries-limit/check-entries-limit.controller';
 import { CheckProjectsLimitController } from './check-projects-limit/check-projects-limit.controller';
 import { GetAllLimitsController } from './get-all-limits/get-all-limits.controller';
@@ -8,6 +9,11 @@ import { GetMyLimitsController } from './get-my-limits/get-my-limits.controller'
 import { PlanLimitsRepository } from './plan-limits.repository';
 
 @Module({
+  // PlansModule: GetMyLimitsController usa PlansRepository.getCompanyPlanAndRole
+  // pra resolver o plano real da empresa (do dono) quando x-company-id vem no
+  // request, em vez do auth.planId do próprio chamador (que pra
+  // gestor/funcionário não reflete o plano contratado pela empresa).
+  imports: [PlansModule],
   controllers: [
     GetMyLimitsController,
     GetAllLimitsController,

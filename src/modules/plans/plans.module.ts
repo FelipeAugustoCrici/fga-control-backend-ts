@@ -11,5 +11,8 @@ import { PlansRepository } from './plans.repository';
   imports: [AuthModule],
   controllers: [ListPlansController, GetMyPermissionsController],
   providers: [PlansRepository, ListPlansService, GetMyPermissionsService],
+  // Usado por modules/plan-limits (GetMyLimitsController) pra resolver o
+  // plano real da empresa (via dono) quando x-company-id está presente.
+  exports: [PlansRepository],
 })
 export class PlansModule {}
