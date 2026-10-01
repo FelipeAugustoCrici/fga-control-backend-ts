@@ -25,7 +25,9 @@ export function toUserResponse(user: UserRow): UserResponse {
     id: user.id,
     name: user.name,
     email: user.email,
-    must_change_password: user.must_change_password,
+    // Coluna é nullable no banco (introspecção revelou — schema antigo
+    // declarava como NOT NULL); default é false, então null vira false.
+    must_change_password: user.must_change_password ?? false,
     is_admin: user.is_admin,
     is_active: user.is_active,
     usage_type: omitEmpty(user.usage_type),

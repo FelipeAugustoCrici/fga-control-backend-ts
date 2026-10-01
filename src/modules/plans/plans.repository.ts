@@ -77,7 +77,7 @@ export class PlansRepository {
       planId:
         member.companies.users_companies_owner_idTousers.plan_id ??
         'personal-free',
-      role: member.role,
+      role: member.role as company_role,
     };
   }
 }

@@ -70,6 +70,27 @@ export class EntriesRepository {
     return row ? this.toResponse(row) : null;
   }
 
+  /**
+   * Lookup bruto de dono/empresa — não exposto em TaskEntryResponse (que
+   * segue o shape público replicado do Go). Usado só pelas checagens de
+   * permissão em update/delete (quem é o dono, de qual empresa) antes de
+   * mexer no registro.
+   */
+  async getOwnership(
+    id: string,
+  ): Promise<{ userId: string; companyId: string | null; date: string } | null> {
+    const row = await this.prisma.task_entries.findUnique({
+      where: { id },
+      select: { user_id: true, company_id: true, date: true },
+    });
+    if (!row || !row.user_id) return null;
+    return {
+      userId: row.user_id,
+      companyId: row.company_id,
+      date: formatDateOnly(row.date),
+    };
+  }
+
   async create(input: CreateEntryInput): Promise<TaskEntryResponse> {
     const totalAmount = (input.timeSpentMinutes / 60) * input.hourlyRate;
 
@@ -108,7 +129,13 @@ export class EntriesRepository {
     });
     if (!current) return null;
 
-    const data: Prisma.task_entriesUpdateInput = { updated_at: new Date() };
+    // Unchecked (não UpdateInput) porque o db pull mais recente capturou a
+    // FK task_entries→tasks que já existia no banco (fk_task_entries_task)
+    // mas não estava declarada no schema antes — agora que a relação
+    // `tasks` existe, UpdateInput só aceita setar task_id via
+    // connect/disconnect; Unchecked continua permitindo o escalar direto
+    // como o código abaixo sempre fez.
+    const data: Prisma.task_entriesUncheckedUpdateInput = { updated_at: new Date() };
 
     if (input.taskId !== undefined) {
       data.task_id = input.taskId === '' ? null : input.taskId;
@@ -237,7 +264,17 @@ export class EntriesRepository {
   private buildWhere(filters: EntryFilters): Prisma.task_entriesWhereInput {
     const and: Prisma.task_entriesWhereInput[] = [];
 
-    if (filters.companyId) {
+    if (filters.companyId && filters.userIds && filters.userIds.length > 0) {
+      // MANAGER: empresa + restrito a um subconjunto (ele + liderados
+      // diretos) — ver ResolveEntryFilterService.
+      and.push({
+        OR: [
+          { company_id: filters.companyId, user_id: { in: filters.userIds } },
+          { user_id: filters.userId, company_id: null },
+        ],
+      });
+    } else if (filters.companyId) {
+      // ADMIN: empresa inteira, sem restrição de usuário.
       and.push({
         OR: [
           { company_id: filters.companyId },
