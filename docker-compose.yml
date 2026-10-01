@@ -36,7 +36,9 @@ services:
     ports:
       # Só pro script de migração (scripts/migrate-users-to-keycloak.ts),
       # que roda no host, não em container.
-      - "5433:5432"
+      # 5433 colide com o postgres de outro projeto (fga-finfamily) neste
+      # mesmo host — por isso 5434 aqui.
+      - "5434:5432"
     volumes:
       - keycloak_db_data:/var/lib/postgresql/data
     healthcheck:
